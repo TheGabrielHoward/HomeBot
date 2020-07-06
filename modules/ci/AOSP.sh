@@ -82,8 +82,11 @@ ci_parse_arguments() {
 			-c | --clean )
 				CI_CLEAN=clean
 				;;
-			-ic | --installclean )
-				CI_CLEAN=installclean
+			-s | --reposync )
+				CI_SYNC=reposync
+				;;
+			-cc | --ccache )
+				CI_CCACHE=ccache
 				;;
 			-d | --device )
 				CI_DEVICE="${2}"
@@ -99,13 +102,13 @@ ci_message() {
 	if [ "$CI_MESSAGE_ID" = "" ]; then
 		CI_MESSAGE_ID=$(tg_send_message "$CI_CHANNEL_ID" "🛠 CI | $CI_AOSP_PROJECT_NAME ($CI_AOSP_PROJECT_VERSION)
 Device: $CI_DEVICE
-Lunch flavor: ${CI_LUNCH_PREFIX}\_${CI_DEVICE}-${CI_LUNCH_SUFFIX}
+Target: ${CI_LUNCH_SUFFIX}
 
 Status: $1" --markdown | jq .result.message_id)
 	else
 		tg_edit_message_text "$CI_CHANNEL_ID" "$CI_MESSAGE_ID" "🛠 CI | $CI_AOSP_PROJECT_NAME ($CI_AOSP_PROJECT_VERSION)
 Device: $CI_DEVICE
-Lunch flavor: ${CI_LUNCH_PREFIX}\_${CI_DEVICE}-${CI_LUNCH_SUFFIX}
+Target: ${CI_LUNCH_SUFFIX}
 
 Status: $1" --markdown
 	fi
@@ -148,6 +151,10 @@ fi
 CI_BUILD_START=$(date +"%s")
 
 cd "${CI_MAIN_DIR}/${CI_AOSP_PROJECT}"
+if [ "$CI_CCACHE" = "ccache" ]; then
+	ci_message "Exporting ccache"
+	export USE_CCACHE=1 && export CCACHE_COMPRESS=1 && export CCACHE_MAXSIZE=50G # 50 GB && export CCACHE_EXEC=$(which ccache)
+fi
 ci_message "Setting up environment..."
 . build/envsetup.sh
 
@@ -160,6 +167,10 @@ if [ $CI_LUNCH_STATUS != 0 ]; then
 	ci_message "Build failed at lunch in $(( CI_BUILD_DURATION / 60 )) minute(s) and $(( CI_BUILD_DURATION % 60 )) seconds"
 	tg_send_document "$CI_CHANNEL_ID" "lunch_log.txt" "$CI_MESSAGE_ID"
 	exit
+else if [ "$CI_SYNC" = "reposync" ]; then
+	ci_message "Syncing source"
+	sleep 5s && echo "repo sync -c -j$(nproc --all) --force-sync --no-clone-bundle --no-tags"
+fi
 fi
 
 if [ "$CI_CLEAN" != "" ]; then
@@ -210,10 +221,10 @@ for artifact in $(ls out/target/product/$CI_DEVICE/$CI_OUT_ARTIFACTS_NAME); do
 	CI_CURRENT_ARTIFACT_LINK=$(ci_upload "$artifact")
 	if [ "$CI_CURRENT_ARTIFACT_LINK" != "" ] || [ "$CI_CURRENT_ARTIFACT_LINK" != "WIP" ]; then
 		# It's a valid link, add it to artifact list
-		ci_add_link_to_list "$CI_CURRENT_ARTIFACTS_NUMBER): [$(basename "$artifact" | sed 's/_/\\_/g')]($CI_CURRENT_ARTIFACT_LINK)"
+		ci_add_link_to_list "$CI_CURRENT_ARTIFACTS_NUMBER): [$(basename "$artifact" | sed 's/_/\_/g')]($CI_CURRENT_ARTIFACT_LINK)"
 	else
 		# Report in the message that this artifact's upload has failed
-		ci_add_link_to_list "$CI_CURRENT_ARTIFACTS_NUMBER): $(basename "$artifact" | sed 's/_/\\_/g'): Upload failed"
+		ci_add_link_to_list "$CI_CURRENT_ARTIFACTS_NUMBER): $(basename "$artifact" | sed 's/_/\_/g'): Upload failed"
 	fi
 	ci_update_links_in_message
 done
