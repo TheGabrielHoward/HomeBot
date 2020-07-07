@@ -24,7 +24,7 @@ Version: $VERSION ($BRANCH)"
 
 module_info() {
 	tg_send_message "$(tg_get_chat_id "$@")" "\`\`\`
-SebaUbuntu's Bash bot
+Gabriel's bot (fork ok SebaUbuntu's Bash bot)
 Version: $VERSION ($BRANCH)
 
 -----------------------------

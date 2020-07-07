@@ -169,7 +169,7 @@ if [ $CI_LUNCH_STATUS != 0 ]; then
 	exit
 else if [ "$CI_SYNC" = "reposync" ]; then
 	ci_message "Syncing source"
-	sleep 5s && echo "repo sync -c -j$(nproc --all) --force-sync --no-clone-bundle --no-tags"
+	repo sync -c -j$(nproc --all) --force-sync --no-clone-bundle --no-tags
 fi
 fi
 
